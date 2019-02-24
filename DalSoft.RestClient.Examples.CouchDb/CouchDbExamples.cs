@@ -2,8 +2,10 @@
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using DalSoft.RestClient.Examples.CouchDb.Models;
+using Newtonsoft.Json;
 using Xunit;
 
 namespace DalSoft.RestClient.Examples.CouchDb
@@ -130,6 +132,62 @@ namespace DalSoft.RestClient.Examples.CouchDb
             var phone = new List<dynamic>(membership?.association?.phones ?? new List<dynamic>()).SingleOrDefault();
             
             Assert.Equal("303-450-4748", phone?.phoneNum);   
+        }
+
+        [Fact]
+        public async Task CouchDBResult_ShouldSerializeIfPut()
+        {
+            string lastRequestBody = null;
+
+            var config = new Config()
+                .UseUnitTestHandler(httpRequest =>
+                    {
+                        lastRequestBody = httpRequest.Content.ReadAsStringAsync().Result;
+                        return new HttpResponseMessage(HttpStatusCode.OK);
+                    }
+                );
+
+            dynamic client = new RestClient("https://my-api.com", config);
+
+            var horse = new Horse(HttpMethod.Put)
+            {
+                Id = "0e746ac7-aef6-4c3e-95e4-1a60f1d93f4",
+                Rev = "1242",
+                Name = "Ga'Abi"
+            };
+
+            await client.NotUsedInUnitTest.Put(horse);
+            
+            Assert.Contains("\"_id\":", lastRequestBody);
+            Assert.Contains("\"_rev\":", lastRequestBody);
+        }
+
+        [Fact]
+        public async Task CouchDBResult_ShouldNotSerializeIfPost()
+        {
+            string lastRequestBody = null;
+
+            var config = new Config()
+                .UseUnitTestHandler(httpRequest =>
+                    {
+                        lastRequestBody = httpRequest.Content.ReadAsStringAsync().Result;
+                       return new HttpResponseMessage(HttpStatusCode.OK);
+                   }
+                );
+
+            dynamic client = new RestClient("https://my-api.com", config);
+
+            var horse = new Horse(HttpMethod.Post)
+            {
+                Id = "0e746ac7-aef6-4c3e-95e4-1a60f1d93f4",
+                Rev = "1242",
+                Name = "Ga'Abi"
+            };
+
+            await client.NotUsedInUnitTest.Put(horse);
+            
+            Assert.DoesNotContain("\"_id\":", lastRequestBody);
+            Assert.DoesNotContain("\"_rev\":", lastRequestBody);
         }
     }
 }
